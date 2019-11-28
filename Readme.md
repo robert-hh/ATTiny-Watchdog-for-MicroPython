@@ -83,16 +83,21 @@ The following pulse time ranges are defined:
 
 |State| Duration| Description |
 |:-:|:-:|:--|
-|sleep|2 ms < pulse < 3600 ms|Set the timeout of the watchdog and start the watch mode. The pulse duration defines the value in seconds. |
-|watch|10 ms <= pulse < 3600 ms|Suspend the watch state and return to sleep mode.|
-|watch|20 µs < pulse < 10 ms|Feed the dog.| 
+|sleep|pulse < 10 ms|Stay in sleep mode|
+|sleep|10 ms <= pulse < 3600 ms|Set the timeout of the watchdog and start the watch mode. The pulse duration defines the value in seconds.|
+|watch|20 µs < pulse < 5 ms|Feed the dog.| 
+|watch|5 ms <= pulse < 10 ms|Suspend the watch state and return to sleep mode.|
+|watch|10 ms <= pulse < 3600 ms|Restart the watch mode and set the new timeout.|
 
 Pulses longer that 3600ms will be ignored in both states. That covers a line which is permanently low. The determination of the pulse duration is not very accurate, but good enough for the purpose.
 
-The debug output will respond to the input with a series of pulses. The first pulse length shows, if a internal timeout (~200µs) or a signal from the host (~1 ms) happened. That is followed: 
+The debug output will respond to the input with a series of pulses. The first pulse length shows, if a internal timeout (~200µs) or a signal from the host (~1 ms) happened. That is followed:  
 - in sleep mode by a single pulse of another ~3 ms duration
 - in watch mode by a burst of short pulses. The burst length indicates the remaining time until reset. 
 - the feed signal is confirmed by two pulses of 1 ms duration.
+
+If the DEBUG mode is set off by the compile switch, the debug output will 
+indicate the watchdog state; low for sleeping and high for watching.
 
 ## Example
 
@@ -100,7 +105,7 @@ The debug output will respond to the input with a series of pulses. The first pu
 import watchdog
 
 wd = watchdog.Watchdog("P9")
-wd.set(100) # st a timeout of 100 seconds
+wd.set(100) # set a timeout of 100 seconds
 #
 # To feed, call regularly
 #

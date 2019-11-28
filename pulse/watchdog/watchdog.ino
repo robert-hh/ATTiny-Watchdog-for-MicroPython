@@ -27,10 +27,10 @@ void send_ack(int, int);
 void send_burst(int, int);
 int get_lowtime(int);
 
-#define DEBUG 1
+#define DEBUG 0
 #define MIN_PULSE 2
 #define MAX_PULSE 3600
-#define SUSPEND_PULSE 10 
+#define SUSPEND_PULSE 5 
 
 void setup() {
     pinMode(RESET_PIN, INPUT_PULLUP);
@@ -44,6 +44,15 @@ void loop() {
     int new_time = timeout;
     int pulse_time, food;
 
+    if (! DEBUG) {
+      if (state == SLEEPING) {
+        digitalWrite(ACK_PIN, LOW);
+      } else {
+        digitalWrite(ACK_PIN, HIGH);
+      }
+    }
+
+
     food = system_sleep(WDTO_1S, SLEEP_MODE_PWR_DOWN);
 
     pulse_time = get_lowtime(FEED_PIN);
@@ -52,7 +61,7 @@ void loop() {
       send_burst(ACK_PIN, pulse_time);
     }
     if (state == SLEEPING) { // Suspended or startup
-      if (pulse_time > MIN_PULSE && pulse_time < MAX_PULSE) {
+      if (pulse_time > (SUSPEND_PULSE * 2) && pulse_time < MAX_PULSE) {
         timeout = pulse_time;
         timer = timeout;
         state = WATCHING;
@@ -67,8 +76,11 @@ void loop() {
           if (DEBUG) {
             send_ack(ACK_PIN, 1);
           }
-        } else if (pulse_time >= SUSPEND_PULSE && pulse_time < MAX_PULSE) {
+        } else if (pulse_time >= SUSPEND_PULSE && pulse_time < (SUSPEND_PULSE * 2)) {
           state = SLEEPING;
+        } else if (pulse_time >= (SUSPEND_PULSE * 2)) {
+          timeout = pulse_time;
+          timer = timeout;
         } else {
           timer -= 1;
           if (timer == 0) {
@@ -115,6 +127,7 @@ void send_burst(int pin, int burst)
     }
   
 }
+
 //****************************************************************  
 // set system into the sleep state 
 // system wakes up when wtchdog is timed out
