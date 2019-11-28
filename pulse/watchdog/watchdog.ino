@@ -152,10 +152,6 @@ ISR(WDT_vect)
    wdt_disable();
 }
 
-ISR(PCINT4_vect) {
-    // This is called when the interrupt occurs; set flag
-}
-
 ISR(PCINT0_vect) {
     // This is called when the interrupt occurs, but I don't need to do anything in it
     tick_seen = 1;

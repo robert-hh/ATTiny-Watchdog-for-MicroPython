@@ -1,6 +1,6 @@
 /* 
    Soft Watchdo Timer
-   Receives both Feed pulse and Commands form Pin 4
+   Receives both Feed pulse and Commands from Pin 4
 */
    
 #include <SoftwareSerial.h>
@@ -149,10 +149,7 @@ void system_sleep(int duration, int mode)
 #ifdef _AVR_IOTNX5_H_  
     ADCSRA |= _BV(ADEN);                 //enable ADC
 #endif    
-/*    if (mySerial.available() > 0) {
-      ping_seen = true;
-    }
-*/}
+}
 
 //****************************************************************  
 
