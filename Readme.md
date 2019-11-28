@@ -64,6 +64,7 @@ methods set() and suspend(). You can use that to toggle DEBUG output from the wa
 ### Serial interface
 
 The following commands are supported: 
+
 | Command | Description |
 |:-:|:--|
 |Snnn|Set the timeout of the watchdog and start the watch mode. nnn is the value in seconds. The command can be repeated while in watch mode and will set a new timeout.|
@@ -79,6 +80,7 @@ interface in the ATTiny uses the SoftSerial module of Arduino. It depends on the
 ### Pulse interface
 
 The following pulse time ranges are defined: 
+
 |State| Duration| Description |
 |:-:|:-:|:--|
 |sleep|2 ms < pulse < 3600 ms|Set the timeout of the watchdog and start the watch mode. The pulse duration defines the value in seconds. |
@@ -91,3 +93,20 @@ The debug output will respond to the input with a series of pulses. The first pu
 - in sleep mode by a single pulse of another ~3 ms duration
 - in watch mode by a burst of short pulses. The burst length indicates the remaining time until reset. 
 - the feed signal is confirmed by two pulses of 1 ms duration.
+
+## Example
+
+```
+import watchdog
+
+wd = watchdog.Watchdog("P9")
+wd.set(100) # st a timeout of 100 seconds
+#
+# To feed, call regularly
+#
+wd.feed()
+#
+# to stop, call
+#
+wd.suspend()
+```
