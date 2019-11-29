@@ -79,11 +79,12 @@ Return values:
 1: watchdog is active  
 None: Port no set or not supported
 
-### watchdog.send(string) ## **Serial version only**
+### watchdog.send(string)
 
 Send string to the watchdog device using the baud rate set in the constructor. 
 That is the basic command used by the methods set() and suspend(). 
-You can use that to toggle DEBUG output from the watchdog.
+You can use that to toggle DEBUG output from the watchdog, by calling send("D").
+In the pulse version, send() exists but does not do anything.
 
 ## Command interface of the ATTiny
 

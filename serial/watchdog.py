@@ -35,8 +35,8 @@ class Watchdog:
             for bit in range(1, 9):
                 self.data[bit] = byte & 1
                 byte >>= 1
-            rmt.pulses_send(duration, tuple(self.data))
-            sleep_us(duration * 2)  # 2 stop bits
+            rmt.pulses_send(self.duration, tuple(self.data))
+            sleep_us(self.duration * 2)  # 2 stop bits
         rmt.deinit()
         self.pin = Pin(self.gpio, Pin.OUT, value=1)
 

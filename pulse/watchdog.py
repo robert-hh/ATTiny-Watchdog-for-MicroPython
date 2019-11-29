@@ -32,3 +32,6 @@ class Watchdog:
             return self.status_pin()
         else:
             return None
+
+    def send(self):
+        pass
