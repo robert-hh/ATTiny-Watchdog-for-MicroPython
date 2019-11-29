@@ -33,10 +33,25 @@ ATTiny will set to output mode. In all other times, it is in input mode with pul
 
 ## Python class
 
-watchdog = Watchdog(port)
+### Serial version
+watchdog = Watchdog(port, baudrate=9600)
 
 Port is the name or number of the GPIO port. It is important not to supply a pin
-object, but the name, e.g. "P9" or 14. The GPIO pin will be initialized by the class.
+object, but the name, e.g. "P9" or 14. The GPIO pin will be initialized by the class. baudrate is the
+speed to be used. The default is 9600 and hardly changed ever.
+
+There is also a version which uses a UART in the file watchdog_uart.py. That one is instantiated with:
+
+watchdog = Watchdog(uart)
+
+In this case, uart has be be an uart object created with the proper baud rate.
+
+### Pulse version
+watchdog = Watchdog(port, status=None)
+
+Port is the name or number of the GPIO port. It is important not to supply a pin
+object, but the name, e.g. "P9" or 14. The GPIO pin will be initialized by the class. status is the
+name/number of a pin, which, if connected, can be used to read back the status of the watchdog.
 
 ## Methods
 
@@ -54,12 +69,23 @@ Feed the dog. The timeout time will be reset to the value given in the set metho
 
 Suspend the watch state and return to the sleep state.
 
-### watchdog.send(string, baudrate) ## **Serial version only**
+### watchdog.status()
 
-Send string to the watchdog device using the given baud rate. That is the basic command used by the
-methods set() and suspend(). You can use that to toggle DEBUG output from the watchdog.
+Read back the status of the watchdog using the pin set in the constructor (pulse version) or 
+just returning None (serial version). It is implemented in the serial version for compatibility.
+Return values:  
 
-## Command interface 
+0: watchdog is sleeping  
+1: watchdog is active  
+None: Port no set or not supported
+
+### watchdog.send(string) ## **Serial version only**
+
+Send string to the watchdog device using the baud rate set in the constructor. 
+That is the basic command used by the methods set() and suspend(). 
+You can use that to toggle DEBUG output from the watchdog.
+
+## Command interface of the ATTiny
 
 ### Serial interface
 
@@ -72,10 +98,12 @@ The following commands are supported:
 |D|Toggle the DEBUG output. The output is send to Port 1 of the ATTiny with 9600 baud.|
 |anything else|Feed the dog. For speed, the feed command actually only creates a start bit, and the ATTiny then reads 0xff as character.|
 
-The DEBUG output will echo the command and countdown the time in watch mode.
+The DEBUG output of the ATTiny will echo the command and countdown the time in watch mode.
 
 For the serial version a pull-up resistor at the communication link is highly recommended. The serial 
-interface in the ATTiny uses the SoftSerial module of Arduino. It depends on the internal clock of the ATTiny (1 MHz here), which is not 100% accurate. In my test, the clock was about 1.004 MHz +/- 2 KHz. For asynchronous serial, that is still within the tolerated error.
+interface in the ATTiny uses the SoftSerial module of Arduino. It depends on the internal clock of 
+the ATTiny (1 MHz here), which is not 100% accurate. In my test, the clock speed was 
+about 1.004 MHz +/- 2 KHz. For asynchronous serial, that is still within the tolerated error range.
 
 ### Pulse interface
 
@@ -84,7 +112,7 @@ The following pulse time ranges are defined:
 |State| Duration| Description |
 |:-:|:-:|:--|
 |sleep|pulse < 10 ms|Stay in sleep mode|
-|sleep|10 ms <= pulse < 3600 ms|Set the timeout of the watchdog and start the watch mode. The pulse duration defines the value in seconds.|
+|sleep|10 ms <= pulse < 3600 ms|Set the timeout of the watchdog and start the watch mode. The pulse duration in ms defines the timeout value in seconds.|
 |watch|20 µs < pulse < 5 ms|Feed the dog.| 
 |watch|5 ms <= pulse < 10 ms|Suspend the watch state and return to sleep mode.|
 |watch|10 ms <= pulse < 3600 ms|Restart the watch mode and set the new timeout.|

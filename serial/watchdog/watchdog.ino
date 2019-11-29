@@ -28,7 +28,7 @@ enum {
 char get_command(int *);
 void system_sleep(int duration, int mode) ;
 
-int DEBUG = true;
+int DEBUG = false;
 
 void setup() {
     mySerial.begin(9600);
