@@ -1,5 +1,5 @@
 /* 
-   Soft Watchdo Timer
+   Soft Watchdog Timer
    Receives both Feed pulse and Commands from Pin 4
 */
    
@@ -11,14 +11,14 @@
 
 
 #define RX_PIN 4
-#define TX_PIN 1
+#define TX_PIN 2
+#define STATUS_PIN 1
 #define RESET_PIN 3
 
 SoftwareSerial mySerial(RX_PIN, TX_PIN);
 // Globals
 int timeout = 3600 * 24; // default timeout 1 Day. Sleepy dog
 int timer = timeout;
-int ping_seen = false;
 char message[10]; // Command Buffer
 enum {
   SLEEPING, WATCHING
@@ -34,54 +34,54 @@ void setup() {
     mySerial.begin(9600);
     mySerial.setTimeout(100);
     pinMode(RESET_PIN, INPUT_PULLUP);
+    pinMode(STATUS_PIN, OUTPUT);
     state = SLEEPING;
 }
 
 void loop() {
     byte received = 0;
     char cmd = '\0';
-    int new_time = timeout;
+    int value = timeout;
+
+    digitalWrite(STATUS_PIN, state);  // Signal WD state
 
     system_sleep(WDTO_1S, SLEEP_MODE_PWR_DOWN);
     
     if (mySerial.available() > 0) {
-      cmd = get_command(&new_time);
+      cmd = get_command(&value);
       if (DEBUG) {
         mySerial.print("Command ");
         mySerial.println(message);
       }
+      if (cmd) {
+        switch (cmd) {
+          case 'S':
+            state = WATCHING;
+            timeout = value;
+            timer = timeout;
+            break;
+          case 'P':
+            state = SLEEPING;
+            break;
+          case 'D':
+            if (value <= 0) {
+              DEBUG = ! DEBUG;
+            } else {
+              DEBUG = value;
+            }
+            break;
+          default:
+            timer = timeout;
+        }
+      }
     }
     if (state == SLEEPING) { // Suspended or startup
-      if (cmd == 'S') {
-        state = WATCHING;
-        timeout = new_time;
-        timer = timeout;
-      } else if (cmd == 'D') {
-        DEBUG = ! DEBUG;
-      } else {
         if (DEBUG) {
           mySerial.println("Sleeping");
         }
-      }
-    } else if (state == WATCHING) {  // Armed
-        if (cmd) {
-          switch (cmd) {
-            case 'S':
-              timeout = new_time;
-              timer = timeout;
-              break;
-            case 'P':
-              state = SLEEPING;
-              break;
-            case 'D':
-              DEBUG = ! DEBUG;
-              break;
-            default:
-              timer = timeout;
-          }
-      } else {
+    } else {  // Armed
         timer -= 1;
-        if (timer == 0) {
+        if (timer <= 0) {
           if (DEBUG) {
             mySerial.println("Bark");
           }
@@ -92,19 +92,17 @@ void loop() {
           digitalWrite(RESET_PIN, HIGH);
           pinMode(RESET_PIN, INPUT_PULLUP);
 
-          timer = timeout;
           state = SLEEPING;
         } else {
           if (DEBUG) {
             mySerial.println(timer, DEC);
           }
         }
-      }
     }
 }
 
-char get_command(int *new_timeout) {
-  int i, tim;
+char get_command(int *value) {
+  int i;
   char resp = '\0';
   byte received = 0;
    
@@ -112,14 +110,10 @@ char get_command(int *new_timeout) {
   if (received > 0) {
     message[received] = '\0';
     for (i = 0; i < received; i++) {
-      if (message[i] == 'S') {
-        tim = atoi(message + i + 1);
-        if (tim > 0) {
-          *new_timeout = tim;
-        }
-        resp = 'S';
-        break;
-      } else if (isalpha(message[i])) {
+      if (message[i] == 'S' ||
+          message[i] == 'D' ||
+          message[i] == 'P') {
+        *value = atoi(message + i + 1);
         resp = message[i];
         break;
       } else {
@@ -161,6 +155,5 @@ ISR(WDT_vect)
 }
 
 ISR(PCINT1_vect) {
-    // This is called when the interrupt occurs; set flag
-    ping_seen = true; 
+    // This is called when the interrupt occurs
 }

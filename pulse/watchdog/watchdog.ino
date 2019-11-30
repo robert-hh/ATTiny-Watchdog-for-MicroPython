@@ -1,5 +1,5 @@
 /* 
-   Soft Watchdo Timer
+   Soft Watchdod Timer
    Receives both Feed pulse and Commands from Pin 4
 */
    
@@ -43,6 +43,7 @@ void loop() {
     byte received = 0;
     int new_time = timeout;
     int pulse_time, food;
+    int reset_state = 1;
 
     if (! DEBUG) {
       if (state == SLEEPING) {
@@ -55,12 +56,16 @@ void loop() {
 
     food = system_sleep(WDTO_1S, SLEEP_MODE_PWR_DOWN);
 
+    reset_state = digitalRead(RESET_PIN); // could be reset of the master which happened
     pulse_time = get_lowtime(FEED_PIN);
     if (DEBUG) {
       send_ack(ACK_PIN, food);
+      send_ack(ACK_PIN, 1 - reset_state);
       send_burst(ACK_PIN, pulse_time);
     }
-    if (state == SLEEPING) { // Suspended or startup
+    if (reset_state == 0) { // reset forces Sleep or Feed??
+        state = SLEEPING;
+    } else if (state == SLEEPING) { // Suspended or startup
       if (pulse_time > (SUSPEND_PULSE * 2) && pulse_time < MAX_PULSE) {
         timeout = pulse_time;
         timer = timeout;
@@ -135,7 +140,7 @@ int system_sleep(int duration, int mode)
 {
     tick_seen = 0;
     GIMSK |= _BV(PCIE);                     // Enable Pin Change Interrupts
-    PCMSK |= _BV(PCINT4);                   // Use PB4 as interrupt pin
+    PCMSK |= (_BV(PCINT4) | _BV(PCINT3));   // Use PB3 and PB4 as interrupt pin
     wdt_enable(duration);
     set_sleep_mode(mode); // sleep mode is set here
     wdt_reset();
@@ -149,7 +154,7 @@ int system_sleep(int duration, int mode)
     sleep_enable();
     sleep_cpu();
     cli();                                  // Disable interrupts
-    PCMSK &= ~_BV(PCINT4);               // Turn off PB1 as interrupt pin
+    PCMSK &= ~(_BV(PCINT4) | (_BV(PCINT3)));               // Turn off PB4 as interrupt pin
     sleep_disable();                     // System continues execution here when watchdog timed out 
 #ifdef _AVR_IOTNX5_H_  
     ADCSRA |= _BV(ADEN);                 //enable ADC
