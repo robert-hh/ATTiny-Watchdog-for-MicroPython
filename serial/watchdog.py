@@ -8,18 +8,17 @@ class Watchdog:
         self.gpio = gpio
         self.pin = Pin(self.gpio, Pin.OUT, value=1)
         self.data = bytearray(9)
-        self.baudrate = baudrate
-        self.duration = 1000000 // self.baudrate
+        self.duration = 1000000 // baudrate
 
     def feed(self):
         self.pin(0)
         sleep_us(self.duration - 40)  # Just the start bit
         self.pin(1)
 
-    def set(self, timeout):
+    def start(self, timeout):
         self.send(b"S{}".format(timeout))
 
-    def suspend(self):
+    def stop(self):
         self.send(b"P")
 
     def status(self):

@@ -82,7 +82,9 @@ void loop() {
       } else {
         timer -= 1;
         if (timer == 0) {
-          mySerial.println("Bark");
+          if (DEBUG) {
+            mySerial.println("Bark");
+          }
 
           pinMode(RESET_PIN, OUTPUT);
           digitalWrite(RESET_PIN, LOW);

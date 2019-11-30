@@ -9,10 +9,10 @@ class Watchdog:
     def feed(self):
         self.uart.write(b'\xff')
 
-    def set(self, timeout):
+    def start(self, timeout):
         self.uart.write(b"S{}".format(timeout))
 
-    def suspend(self):
+    def stop(self):
         self.uart.write(b"P")
 
     def status(self):

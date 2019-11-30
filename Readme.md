@@ -38,13 +38,13 @@ watchdog = Watchdog(port, baudrate=9600)
 
 Port is the name or number of the GPIO port. It is important not to supply a pin
 object, but the name, e.g. "P9" or 14. The GPIO pin will be initialized by the class. baudrate is the
-speed to be used. The default is 9600 and hardly changed ever.
+speed to be used. The default is 9600 and hardly ever changed.
 
 There is also a version which uses a UART in the file watchdog_uart.py. That one is instantiated with:
 
 watchdog = Watchdog(uart)
 
-In this case, uart has be be an uart object created with the proper baud rate.
+In this case, uart has be be an uart object created with the proper baud rate and pin assignments.
 
 ### Pulse version
 watchdog = Watchdog(port, status=None)
@@ -55,7 +55,7 @@ name/number of a pin, which, if connected, can be used to read back the status o
 
 ## Methods
 
-### watchdog.set(seconds)
+### watchdog.start(seconds)
 
 Set the timeout period of the watchdog to seconds and start the watch mode. The granularity is seconds.
 The serial variant allows to reset the timeout while in watch mode. 
@@ -65,7 +65,7 @@ The pulse variant has to be stopped first.
 
 Feed the dog. The timeout time will be reset to the value given in the set method
 
-### watchdog.suspend()
+### watchdog.stop()
 
 Suspend the watch state and return to the sleep state.
 
@@ -82,7 +82,7 @@ None: Port no set or not supported
 ### watchdog.send(string)
 
 Send string to the watchdog device using the baud rate set in the constructor. 
-That is the basic command used by the methods set() and suspend(). 
+That is the basic command used by the methods start() and stop(). 
 You can use that to toggle DEBUG output from the watchdog, by calling send("D").
 In the pulse version, send() exists but does not do anything.
 
@@ -134,7 +134,7 @@ indicate the watchdog state; low for sleeping and high for watching.
 import watchdog
 
 wd = watchdog.Watchdog("P9")
-wd.set(100) # set a timeout of 100 seconds
+wd.start(100) # set a timeout of 100 seconds and start
 #
 # To feed, call regularly
 #
@@ -142,5 +142,5 @@ wd.feed()
 #
 # to stop, call
 #
-wd.suspend()
+wd.stop()
 ```

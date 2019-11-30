@@ -18,14 +18,14 @@ class Watchdog:
         sleep_us(20)  # Just a short blip
         self.pin(1)
 
-    def set(self, timeout):
+    def start(self, timeout):
         timeout = min(MAXTIMEOUT, timeout)
         self.pin(0)
         sleep_ms(timeout)  # Pulse as long as timeout set
         self.pin(1)
 
-    def suspend(self):
-        self.set(SUSPEND)  # Longer pulse for suspend
+    def stop(self):
+        self.start(SUSPEND)  # Longer pulse for suspend
 
     def status(self):
         if self.status_pin is not None:
