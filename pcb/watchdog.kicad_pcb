@@ -34,7 +34,7 @@
   )
 
   (setup
-    (last_trace_width 0.5)
+    (last_trace_width 0.25)
     (user_trace_width 0.5)
     (trace_clearance 0.2)
     (zone_clearance 0.508)
@@ -342,7 +342,7 @@
     )
   )
 
-  (gr_text 1 (at 97.282 72.009 270) (layer F.SilkS)
+  (gr_text 1 (at 96.774 73.914 270) (layer F.SilkS)
     (effects (font (size 1.5 1.5) (thickness 0.3)))
   )
   (gr_line (start 95.377 69.85) (end 117.221 69.85) (angle 90) (layer Edge.Cuts) (width 0.15))
