@@ -42,12 +42,19 @@ void loop() {
     byte received = 0;
     char cmd = '\0';
     int value = timeout;
+    int reset_state;
 
     digitalWrite(STATUS_PIN, state);  // Signal WD state
 
     system_sleep(WDTO_1S, SLEEP_MODE_PWR_DOWN);
-    
-    if (mySerial.available() > 0) {
+
+    reset_state = digitalRead(RESET_PIN); // could be reset of the master which happened
+    if (reset_state == 0) {  // reset is low, stop watchdog
+        state = SLEEPING;
+        if (DEBUG) {
+            mySerial.println("Manual reset");
+        }
+    } else if (mySerial.available() > 0) {
       cmd = get_command(&value);
       if (DEBUG) {
         mySerial.print("Command ");
@@ -129,6 +136,7 @@ char get_command(int *value) {
 // system wakes up when wtchdog is timed out
 void system_sleep(int duration, int mode) 
 {
+    PCMSK |= _BV(PCINT3);   // Use PB3 too as interrupt pin
     wdt_enable(duration);
     set_sleep_mode(mode); // sleep mode is set here
     wdt_reset();
@@ -141,7 +149,7 @@ void system_sleep(int duration, int mode)
     sleep_enable();
     sleep_cpu();
     sleep_disable();                     // System continues execution here when watchdog timed out 
-//    PCMSK &= ~_BV(PCINT1);               // Turn off PB1 as interrupt pin
+    PCMSK &= ~_BV(PCINT3);               // Turn off PB3 as interrupt pin
 #ifdef _AVR_IOTNX5_H_  
     ADCSRA |= _BV(ADEN);                 //enable ADC
 #endif    

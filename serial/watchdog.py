@@ -4,11 +4,15 @@ from utime import sleep_us
 BAUDRATE = const(9600)
 
 class Watchdog:
-    def __init__(self, gpio, baudrate=BAUDRATE):
+    def __init__(self, gpio, status=None, baudrate=BAUDRATE):
         self.gpio = gpio
         self.pin = Pin(self.gpio, Pin.OUT, value=1)
         self.data = bytearray(9)
         self.duration = 1000000 // baudrate
+        if status is not None:
+            self.status_pin = Pin(status, Pin.IN)
+        else:
+            self.status_pin = None
 
     def feed(self):
         self.pin(0)
@@ -22,7 +26,10 @@ class Watchdog:
         self.send(b"P")
 
     def status(self):
-        return None  # Just to show the intention of returning None
+        if self.status_pin is not None:
+            return self.status_pin()
+        else:
+            return None
 
     def send(self, msg):
         rmt = RMT(channel=4, gpio=self.gpio, tx_idle_level=1)

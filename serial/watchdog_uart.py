@@ -3,8 +3,9 @@
 #
 
 class Watchdog:
-    def __init__(self, uart):
+    def __init__(self, uart, status=None):
         self.uart = uart
+        self.status_pin = status
 
     def feed(self):
         self.uart.write(b'\xff')
@@ -16,7 +17,10 @@ class Watchdog:
         self.uart.write(b"P")
 
     def status(self):
-        return None  # Just to show the intention of returning None
+        if self.status_pin is not None:
+            return self.status_pin()
+        else:
+            return None
 
     def send(self, msg):
         if type(msg) is str:
