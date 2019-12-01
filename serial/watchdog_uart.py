@@ -13,8 +13,8 @@ class Watchdog:
     def start(self, timeout):
         self.uart.write(b"S{}".format(timeout))
 
-    def stop(self):
-        self.uart.write(b"P")
+    def stop(self, timeout=0):
+        self.uart.write(b"P{}".format(timeout))
 
     def status(self):
         if self.status_pin is not None:

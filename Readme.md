@@ -9,7 +9,7 @@ These two variants consists of two components:
 - Software for an AttinyX5 device, which is the actual Watchdog. For (my) convenience
 I made it with the Arduino development environment. I selected the ATTiny because it is easy 
 available, cheap, well documented, and easy to use and available in various packages. 
-Besides the controller, no other component is required.
+Besides the controller and a pull-up resistor for the input, no other component is required.
 - A small class for the MicroPython device controlling the watchdog.
 
 These two variants differ on how the communication between the micropython device and
@@ -25,16 +25,20 @@ The run-time overhead of both variants is comparable and differs only in the len
 feed pulse. For the **pulse** variant, it is 20µs, for the **serial** variant, it is 100µs (the length
 of the start bit at 9600 baud).
 
-Both watchdogs have two states, a sleep state and a watch state. They start in sleep mode and have 
+Both watchdogs have two states, a sleep state and a watch state. They start in sleep state and have 
 to be armed by a dedicated signal. The watch state can be suspended, e.g. before going to deep sleep.
-The current consumption of the watchdog is about 1 µA, whith short bursts of 1 mA for 500µs every second.
+The current consumption of the watchdog is about 1 µA, with short bursts of 1 mA for 500µs every second.
 
-When the watchdog fires (Barks), it creates reset pulse of 100ms duration. For that, the GPIO pin of the 
-ATTiny will set to output mode. In all other times, it is in input mode with pull-up activated.
+When the watchdog fires (Barks), it creates reset pulse of 100ms duration. For that time, the 
+respective GPIO pin of the ATTiny will set to output mode. In all other times, it is in
+input mode with pull-up active.
+
+In both version, an Reset signal on the supervized micro is detected and will cause the watchdog 
+to enter the sleep state. If the sleep state is timed (see command stop() below), then for that period only.
 
 ## Python class
 
-### Serial version
+### Serial version, RMT
 watchdog = Watchdog(port, status=None, baudrate=9600)
 
 Port is the name or number of the GPIO port. It is important not to supply a pin
@@ -42,11 +46,10 @@ object, but the name, e.g. "P9" or 14. The GPIO pin will be initialized by the c
 name/number of a pin, which, if connected, can be used to read back the status of the watchdog.
 baudrate is the speed to be used. The default is 9600 and hardly ever changed.
 
-There is also a version which uses a UART in the file watchdog_uart.py. That one is instantiated with:
-
+### Serial version, UART
 watchdog = Watchdog(uart, status=None)
 
-In this case, uart has be be an UART object created with the proper baud rate and pin assignments.
+uart has be be an UART object created with the proper baud rate and pin assignments.
 status is a Pin object, defined in input mode for reading back the status pin.
 
 ### Pulse version
@@ -61,16 +64,16 @@ name/number of a pin, which, if connected, can be used to read back the status o
 ### watchdog.start(seconds)
 
 Set the timeout period of the watchdog to seconds and start the watch mode. The granularity is seconds.
-The serial variant allows to reset the timeout while in watch mode. 
-The pulse variant has to be stopped first.
 
 ### watchdog.feed()
 
-Feed the dog. The timeout time will be reset to the value given in the set method
+Feed the dog. The timeout time will be set to the value given by the start() command.
 
-### watchdog.stop()
+### watchdog.stop(seconds=0)
 
-Suspend the watch state and return to the sleep state.
+Suspend the watch state for the given time and enter the sleep state.   
+**Serial version**: If the value of seconds is not zero, sleep only for that amount of time 
+and return to the watch state after that.
 
 ### watchdog.status()
 
@@ -95,8 +98,8 @@ The following commands are supported:
 
 | Command | Description |
 |:-:|:--|
-|Snnn|Set the timeout of the watchdog and start the watch mode. nnn is the value in seconds. The command can be repeated while in watch mode and will set a new timeout.|
-|P|Suspend the watch state and return to sleep mode.|
+|Snnn|Set the timeout of the watchdog and change to the watch state. nnn is the value in seconds. The command can be repeated while in watch state and will set a new timeout.|
+|Pnnn|Suspend the watch state and return to the sleep state. If the number nnn is given and > 0, then sleep for that time only and return to the watch state after that.|
 |Dn|n is a number, which may be omitted. If the value is 0, toggle the DEBUG output. If the value is not 0, switch DEBUG ouput on. The output is send to Port PB2 of the ATTiny with 9600 baud.|
 |anything else|Feed the dog. For speed, the feed command actually only creates a start bit, and the ATTiny then reads 0xff as character.|
 
@@ -113,11 +116,11 @@ The following pulse time ranges are defined:
 
 |State| Duration| Description |
 |:-:|:-:|:--|
-|sleep|pulse < 10 ms|Stay in sleep mode|
-|sleep|10 ms <= pulse < 3600 ms|Set the timeout of the watchdog and start the watch mode. The pulse duration in ms defines the timeout value in seconds.|
+|sleep|pulse < 10 ms|Stay in the sleep state|
+|sleep|10 ms <= pulse < 3600 ms|Set the timeout of the watchdog and change to the watch state. The pulse duration in ms defines the timeout value in seconds.|
 |watch|20 µs < pulse < 5 ms|Feed the dog.| 
-|watch|5 ms <= pulse < 10 ms|Suspend the watch state and return to sleep mode.|
-|watch|10 ms <= pulse < 3600 ms|Restart the watch mode and set the new timeout.|
+|watch|5 ms <= pulse < 10 ms|Suspend the watch state and return to the sleep state.|
+|watch|10 ms <= pulse < 3600 ms|Restart the watch state and set the new timeout.|
 
 Pulses longer that 3600ms will be ignored in both states. That covers a line which is permanently low. The determination of the pulse duration is not very accurate, but good enough for the purpose.
 

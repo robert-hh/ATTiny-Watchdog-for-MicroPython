@@ -8,7 +8,6 @@
 #include <avr/power.h>
 #include <avr/wdt.h>
 
-
 #define FEED_PIN 4
 #define ACK_PIN 1
 #define RESET_PIN 3
@@ -40,10 +39,8 @@ void setup() {
 }
 
 void loop() {
-    byte received = 0;
-    int new_time = timeout;
     int pulse_time, food;
-    int reset_state = 1;
+    int reset_state;
 
     if (! DEBUG) {
       if (state == SLEEPING) {
@@ -52,7 +49,6 @@ void loop() {
         digitalWrite(ACK_PIN, HIGH);
       }
     }
-
 
     food = system_sleep(WDTO_1S, SLEEP_MODE_PWR_DOWN);
 
@@ -67,8 +63,7 @@ void loop() {
         state = SLEEPING;
     } else if (state == SLEEPING) { // Suspended or startup
       if (pulse_time > (SUSPEND_PULSE * 2) && pulse_time < MAX_PULSE) {
-        timeout = pulse_time;
-        timer = timeout;
+        timer = timeout = pulse_time;
         state = WATCHING;
       } else {
         if (DEBUG) {
@@ -122,7 +117,6 @@ void send_ack(int pin, int duration)
     digitalWrite(pin, HIGH);
     delay(duration);
     digitalWrite(pin, LOW);
-  
 }
 
 void send_burst(int pin, int burst)
@@ -130,7 +124,6 @@ void send_burst(int pin, int burst)
     for (int i = 0; i < burst; i++) {
       send_ack(ACK_PIN, 0);
     }
-  
 }
 
 //****************************************************************  

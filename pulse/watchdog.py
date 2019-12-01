@@ -24,7 +24,7 @@ class Watchdog:
         sleep_ms(timeout)  # Pulse as long as timeout set
         self.pin(1)
 
-    def stop(self):
+    def stop(self, timeout=0):
         self.start(SUSPEND)  # Longer pulse for suspend
 
     def status(self):
@@ -34,4 +34,4 @@ class Watchdog:
             return None
 
     def send(self):
-        pass
+        self.feed()

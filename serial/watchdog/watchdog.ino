@@ -14,21 +14,25 @@
 #define TX_PIN 2
 #define STATUS_PIN 1
 #define RESET_PIN 3
+#define MAX_MSG 10
 
 SoftwareSerial mySerial(RX_PIN, TX_PIN);
 // Globals
-int timeout = 3600 * 24; // default timeout 1 Day. Sleepy dog
-int timer = timeout;
-char message[10]; // Command Buffer
+int watch_period = 3600; // default timeout 1 Hour. Lazy dog
+int sleep_period = 0;    // sleeps forever, once it does
+int timer = watch_period;
 enum {
   SLEEPING, WATCHING
 } state = SLEEPING; 
-
-// Function Prototypes
-char get_command(int *);
-void system_sleep(int duration, int mode) ;
-
 int DEBUG = false;
+
+// Data and Function Prototypes
+struct result {
+    char cmd;
+    int value;
+};
+void system_sleep(int duration, int mode) ;
+result get_command(char *);
 
 void setup() {
     mySerial.begin(9600);
@@ -39,10 +43,9 @@ void setup() {
 }
 
 void loop() {
-    byte received = 0;
-    char cmd = '\0';
-    int value = timeout;
+    result input;
     int reset_state;
+    char message[MAX_MSG + 1]; // Command Buffer
 
     digitalWrite(STATUS_PIN, state);  // Signal WD state
 
@@ -51,40 +54,59 @@ void loop() {
     reset_state = digitalRead(RESET_PIN); // could be reset of the master which happened
     if (reset_state == 0) {  // reset is low, stop watchdog
         state = SLEEPING;
+        timer = sleep_period;
         if (DEBUG) {
-            mySerial.println("Manual reset");
+          mySerial.println("Manual reset");
         }
     } else if (mySerial.available() > 0) {
-      cmd = get_command(&value);
+      input = get_command(message);
       if (DEBUG) {
         mySerial.print("Command ");
         mySerial.println(message);
       }
-      if (cmd) {
-        switch (cmd) {
+      if (input.cmd) {
+        switch (input.cmd) {
           case 'S':
             state = WATCHING;
-            timeout = value;
-            timer = timeout;
+            timer = watch_period = input.value;
             break;
           case 'P':
             state = SLEEPING;
+            timer = sleep_period = input.value;
             break;
           case 'D':
-            if (value <= 0) {
+            if (input.value <= 0) {
               DEBUG = ! DEBUG;
             } else {
-              DEBUG = value;
+              DEBUG = input.value;
             }
             break;
           default:
-            timer = timeout;
+            if (state == WATCHING) { // Feed the dog
+              timer = watch_period;
+            }
         }
       }
     }
-    if (state == SLEEPING) { // Suspended or startup
-        if (DEBUG) {
-          mySerial.println("Sleeping");
+    if (state == SLEEPING) { // Stopped
+        if (sleep_period > 0) {
+          timer -= 1;
+          if (timer <= 0) {
+            timer = watch_period;
+            state = WATCHING;
+            if (DEBUG) {
+              mySerial.println("Yawn");
+            }
+          } else {
+            if (DEBUG) {
+              mySerial.print(timer, DEC);
+              mySerial.println(" Sleeping");
+            }
+          }
+        } else {
+          if (DEBUG) {
+            mySerial.println("Sleeping");
+          }
         }
     } else {  // Armed
         timer -= 1;
@@ -100,35 +122,42 @@ void loop() {
           pinMode(RESET_PIN, INPUT_PULLUP);
 
           state = SLEEPING;
+          timer = sleep_period;
+          // if the watchdog should be restarted instead of sleeping,
+          // replace the two lines above by the single line
+          // timer = watch_period;
         } else {
           if (DEBUG) {
-            mySerial.println(timer, DEC);
+            mySerial.print(timer, DEC);
+            mySerial.println(" Watching");
           }
         }
     }
 }
 
-char get_command(int *value) {
-  int i;
-  char resp = '\0';
+result get_command(char *message) {
+  result input = {'\0', 0};
   byte received = 0;
    
-  received = mySerial.readBytes(message, sizeof(message));
+  received = mySerial.readBytes(message, MAX_MSG);
   if (received > 0) {
     message[received] = '\0';
-    for (i = 0; i < received; i++) {
+    for (int i = 0; i < received; i++) {
       if (message[i] == 'S' ||
           message[i] == 'D' ||
           message[i] == 'P') {
-        *value = atoi(message + i + 1);
-        resp = message[i];
+        input.cmd = message[i];
+        input.value = atoi(message + i + 1);
+        if (input.value < 0) { // no negative values
+          input.value = 0;
+        }
         break;
       } else {
-        resp = 'F';
+        input.cmd = 'F';
       }
     }
   }
-  return resp;
+  return input;
 }
 
 //****************************************************************  

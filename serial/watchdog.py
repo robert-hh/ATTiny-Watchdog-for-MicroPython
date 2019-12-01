@@ -16,14 +16,14 @@ class Watchdog:
 
     def feed(self):
         self.pin(0)
-        sleep_us(self.duration - 40)  # Just the start bit
+        sleep_us(self.duration - 20)  # Just the start bit
         self.pin(1)
 
     def start(self, timeout):
         self.send(b"S{}".format(timeout))
 
-    def stop(self):
-        self.send(b"P")
+    def stop(self, timeout=0):
+        self.send(b"P{}".format(timeout))
 
     def status(self):
         if self.status_pin is not None:
