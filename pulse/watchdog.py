@@ -26,6 +26,9 @@ class Watchdog:
 
     def stop(self, timeout=0):
         self.start(SUSPEND)  # Longer pulse for suspend
+        if timeout > 0: # second pulse signals sleep period
+            utime.sleep_ms(SUSPEND)
+            self.start(timeout)
 
     def status(self):
         if self.status_pin is not None:

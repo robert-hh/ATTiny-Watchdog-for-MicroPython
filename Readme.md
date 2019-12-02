@@ -71,8 +71,8 @@ Feed the dog. The timeout time will be set to the value given by the start() com
 
 ### watchdog.stop(seconds=0)
 
-Suspend the watch state for the given time and enter the sleep state.   
-**Serial version**: If the value of seconds is not zero, sleep only for that amount of time 
+Suspend the watch state for the given time and enter the sleep state. 
+If the value of seconds is not zero, sleep only for that amount of time 
 and return to the watch state after that.
 
 ### watchdog.status()
@@ -92,6 +92,18 @@ In the pulse version, send() exists but does not do anything.
 
 ## Command interface of the ATTiny
 
+### Pin assignments of the Attiny:
+
+|Pin|Port|Function|
+|:-:|:-:|:-|
+|2|PB3|Reset signal to host (required)|
+|3|PB4|Feed and command input pin (recommended)|
+|4|GND|GND (required)|
+|6|PB1|Status pin (optional)|
+|7|PB2|Debug output pin. (optional)|
+|8|Vcc|3.3 - 5V Vcc (required)|
+
+
 ### Serial interface
 
 The following commands are supported: 
@@ -103,7 +115,8 @@ The following commands are supported:
 |Dn|n is a number, which may be omitted. If the value is 0, toggle the DEBUG output. If the value is not 0, switch DEBUG ouput on. The output is send to Port PB2 of the ATTiny with 9600 baud.|
 |anything else|Feed the dog. For speed, the feed command actually only creates a start bit, and the ATTiny then reads 0xff as character.|
 
-The DEBUG output of the ATTiny will echo the command and countdown the time in watch mode.
+The DEBUG output of the ATTiny will echo the command and countdown the time in watch mode.  
+The status output will indicate the watchdog state; low for sleeping and high for watching.
 
 For the serial version a pull-up resistor at the communication link is highly recommended. The serial 
 interface in the ATTiny uses the SoftSerial module of Arduino. It depends on the internal clock of 
@@ -116,23 +129,23 @@ The following pulse time ranges are defined:
 
 |State| Duration| Description |
 |:-:|:-:|:--|
-|sleep|pulse < 10 ms|Stay in the sleep state|
+|sleep|pulse < 5 ms|Feed pulse. Will be ignored|
+|sleep|5 ms <= pulse < 10 ms|Stay in sleep mode. If after less than 10 ms it is followed by another pulse, that time is taken as sleep timeout.|
 |sleep|10 ms <= pulse < 3600 ms|Set the timeout of the watchdog and change to the watch state. The pulse duration in ms defines the timeout value in seconds.|
 |watch|20 µs < pulse < 5 ms|Feed the dog.| 
-|watch|5 ms <= pulse < 10 ms|Suspend the watch state and return to the sleep state.|
+|watch|5 ms <= pulse < 10 ms|Suspend the watch state and enter the sleep state. If after less than 10 ms it is followed by another pulse, that time is taken as sleep timeout.|
 |watch|10 ms <= pulse < 3600 ms|Restart the watch state and set the new timeout.|
 
 Pulses longer that 3600ms will be ignored in both states. That covers a line which is permanently low. The determination of the pulse duration is not very accurate, but good enough for the purpose.
 
-The debug output will respond to the input with a series of pulses. The first pulse length shows, 
-if a internal timeout (~200µs) or a signal from the host (~1 ms) happened. The second pulse shows the
-state of the reset line. That is followed:  
-- in sleep mode by a single pulse of another ~3 ms duration
-- in watch mode by a burst of short pulses. The burst length indicates the remaining time until reset. 
-- the feed signal is confirmed by two pulses of 1 ms duration.
+The debug output will respond to the input with a series of pulses.   
+- The first pulse length shows, if a internal timeout (~200µs) or a signal from the host (~1 ms) happened.   
+- The second pulse shows the state of the watchdog, short for sleep and long for watch.   
+- The third pulse shows the state of the reset line, short for high and long for low.  
+- That is followed  by a burst of short pulses. The burst length indicates the remaining time until
+timout in the respective state. 
 
-If the DEBUG mode is set off by the compile switch, the debug output will 
-indicate the watchdog state; low for sleeping and high for watching.
+The status output will indicate the watchdog state; low for sleeping and high for watching.
 
 ## Example
 

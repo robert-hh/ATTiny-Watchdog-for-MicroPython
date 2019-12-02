@@ -18,21 +18,31 @@
 
 SoftwareSerial mySerial(RX_PIN, TX_PIN);
 // Globals
+// if you want to start the watchdog busy, set sleep period and watch period accordingly.
+// then it needs no further interaction to run.
+//
 int watch_period = 3600; // default timeout 1 Hour. Lazy dog
 int sleep_period = 0;    // sleeps forever, once it does
-int timer = watch_period;
+int timer = sleep_period;
+int DEBUG = false;
 enum {
   SLEEPING, WATCHING
 } state = SLEEPING; 
-int DEBUG = false;
 
+enum tags {
+  TIMEOUT = 'T',
+  START = 'S',
+  STOP = 'P',
+  FEED = 'F',
+  LOGGING = 'D'
+};
 // Data and Function Prototypes
 struct result {
-    char cmd;
+    tags cmd;
     int value;
 };
 void system_sleep(int duration, int mode) ;
-result get_command(char *);
+result get_input();
 
 void setup() {
     mySerial.begin(9600);
@@ -45,7 +55,6 @@ void setup() {
 void loop() {
     result input;
     int reset_state;
-    char message[MAX_MSG + 1]; // Command Buffer
 
     digitalWrite(STATUS_PIN, state);  // Signal WD state
 
@@ -56,106 +65,92 @@ void loop() {
         state = SLEEPING;
         timer = sleep_period;
         if (DEBUG) {
-          mySerial.println("Manual reset");
+          mySerial.println("Reset");
         }
-    } else if (mySerial.available() > 0) {
-      input = get_command(message);
-      if (DEBUG) {
-        mySerial.print("Command ");
-        mySerial.println(message);
-      }
-      if (input.cmd) {
-        switch (input.cmd) {
-          case 'S':
-            state = WATCHING;
-            timer = watch_period = input.value;
-            break;
-          case 'P':
-            state = SLEEPING;
-            timer = sleep_period = input.value;
-            break;
-          case 'D':
-            if (input.value <= 0) {
-              DEBUG = ! DEBUG;
-            } else {
-              DEBUG = input.value;
+    } else { // check messages
+      input = get_input();
+      switch (input.cmd) {
+        case START: // Start
+          state = WATCHING;
+          timer = watch_period = input.value;
+          break;
+        case STOP: // Stop
+          state = SLEEPING;
+          timer = sleep_period = input.value;
+          break;
+        case LOGGING: //Debug
+          if (input.value <= 0) {
+            DEBUG = ! DEBUG;
+          } else {
+            DEBUG = input.value;
+          }
+          break;
+        case FEED: // Feed
+          if (state == WATCHING) { // Feed the dog
+            timer = watch_period;
+          }
+        case TIMEOUT:
+        default: // Timeout
+          if (state == SLEEPING) { // Stopped
+            if (sleep_period > 0) {
+              timer -= 1;
+              if (timer <= 0) {
+                timer = watch_period;
+                state = WATCHING;
+              }
+            }
+          } else {  // Armed
+            timer -= 1;
+            if (timer <= 0) {
+              // Fire the reset Pulse
+              pinMode(RESET_PIN, OUTPUT);
+              digitalWrite(RESET_PIN, LOW);
+              delay(100);
+              digitalWrite(RESET_PIN, HIGH);
+              pinMode(RESET_PIN, INPUT_PULLUP);
+
+              state = SLEEPING;
+              timer = sleep_period;
+              // if the watchdog should be restarted instead of sleeping,
+              // replace the two lines above by the single line
+              // timer = watch_period;
             }
             break;
-          default:
-            if (state == WATCHING) { // Feed the dog
-              timer = watch_period;
-            }
-        }
+          }
       }
     }
-    if (state == SLEEPING) { // Stopped
-        if (sleep_period > 0) {
-          timer -= 1;
-          if (timer <= 0) {
-            timer = watch_period;
-            state = WATCHING;
-            if (DEBUG) {
-              mySerial.println("Yawn");
-            }
-          } else {
-            if (DEBUG) {
-              mySerial.print(timer, DEC);
-              mySerial.println(" Sleeping");
-            }
-          }
-        } else {
-          if (DEBUG) {
-            mySerial.println("Sleeping");
-          }
-        }
-    } else {  // Armed
-        timer -= 1;
-        if (timer <= 0) {
-          if (DEBUG) {
-            mySerial.println("Bark");
-          }
-
-          pinMode(RESET_PIN, OUTPUT);
-          digitalWrite(RESET_PIN, LOW);
-          delay(100);
-          digitalWrite(RESET_PIN, HIGH);
-          pinMode(RESET_PIN, INPUT_PULLUP);
-
-          state = SLEEPING;
-          timer = sleep_period;
-          // if the watchdog should be restarted instead of sleeping,
-          // replace the two lines above by the single line
-          // timer = watch_period;
-        } else {
-          if (DEBUG) {
-            mySerial.print(timer, DEC);
-            mySerial.println(" Watching");
-          }
-        }
+    if (DEBUG) {
+      mySerial.print(state ? "Watch " : "Sleep ");
+      mySerial.println(timer, DEC);
     }
 }
 
-result get_command(char *message) {
-  result input = {'\0', 0};
+result get_input() {
+  result input;
   byte received = 0;
-   
-  received = mySerial.readBytes(message, MAX_MSG);
-  if (received > 0) {
-    message[received] = '\0';
-    for (int i = 0; i < received; i++) {
-      if (message[i] == 'S' ||
-          message[i] == 'D' ||
-          message[i] == 'P') {
-        input.cmd = message[i];
-        input.value = atoi(message + i + 1);
-        if (input.value < 0) { // no negative values
-          input.value = 0;
+  char message[MAX_MSG + 1]; // Command Buffer
+
+  if (mySerial.available() > 0) { // message seen 
+    received = mySerial.readBytes(message, MAX_MSG);
+    if (received > 0) {
+      message[received] = '\0';
+      if (DEBUG) {
+        mySerial.print("Cmd ");
+        mySerial.println(message);
+      }
+      for (int i = 0; i < received; i++) {
+        if (message[i] == 'S' ||  // dedicated command?
+            message[i] == 'D' ||
+            message[i] == 'P') {
+          input = {(tags)message[i], max(atoi(message + i + 1), 0)};
+          break;
+        } else { // Everything else is considered Feed
+          input = {FEED, 0};
         }
-        break;
-      } else {
-        input.cmd = 'F';
       }
     }
+  } else {
+    input = {TIMEOUT, 0};
   }
   return input;
 }

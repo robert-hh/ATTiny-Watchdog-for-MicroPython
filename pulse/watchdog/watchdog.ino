@@ -9,109 +9,165 @@
 #include <avr/wdt.h>
 
 #define FEED_PIN 4
-#define ACK_PIN 1
+#define DEBUG_PIN 2
+#define STATUS_PIN 1
 #define RESET_PIN 3
 
+#define DEBUG 0
+
+#define MIN_PULSE 2
+#define MAX_PULSE 3600
+#define SUSPEND_PULSE 5 
+
 // Globals
-int timeout = 3600 * 8; // default timeout 8 hours. Sleepy dog
-int timer = timeout;
+// if you want to start the watchdog busy, set sleep period and watch period accordingly.
+// then it needs no further interaction to run.
+//
+int watch_period = 3600; // Default timeout 1 hour. Sleepy dog
+int sleep_period = 0;    // Default timeout infinite
+int timer = sleep_period;
 int tick_seen = 0;
 enum {
   SLEEPING, WATCHING
 } state = SLEEPING; 
 
-// Function Prototypes
-int system_sleep(int duration, int mode) ;
+enum tags {
+  TIMEOUT = 'T',
+  START = 'S',
+  STOP = 'P',
+  FEED = 'F',
+  LOGGING = 'D'
+};
+
+// Function and Data Prototypes
+struct result {
+    tags cmd;
+    int value;
+};
+void system_sleep(int duration, int mode) ;
+int get_pulsetime(int, int, int);
+result get_input();
+#if DEBUG
 void send_ack(int, int);
 void send_burst(int, int);
-int get_lowtime(int);
-
-#define DEBUG 0
-#define MIN_PULSE 2
-#define MAX_PULSE 3600
-#define SUSPEND_PULSE 5 
+#endif
 
 void setup() {
     pinMode(RESET_PIN, INPUT_PULLUP);
     pinMode(FEED_PIN, INPUT_PULLUP);
-    pinMode(ACK_PIN, OUTPUT);
+    pinMode(STATUS_PIN, OUTPUT);
+#if DEBUG
+    pinMode(DEBUG_PIN, OUTPUT);
+#endif
     state = SLEEPING;
 }
 
 void loop() {
-    int pulse_time, food;
+    result input;
     int reset_state;
 
-    if (! DEBUG) {
-      if (state == SLEEPING) {
-        digitalWrite(ACK_PIN, LOW);
-      } else {
-        digitalWrite(ACK_PIN, HIGH);
-      }
+    if (state == SLEEPING) {
+      digitalWrite(STATUS_PIN, LOW);
+    } else {
+      digitalWrite(STATUS_PIN, HIGH);
     }
 
-    food = system_sleep(WDTO_1S, SLEEP_MODE_PWR_DOWN);
+    system_sleep(WDTO_1S, SLEEP_MODE_PWR_DOWN);
 
     reset_state = digitalRead(RESET_PIN); // could be reset of the master which happened
-    pulse_time = get_lowtime(FEED_PIN);
-    if (DEBUG) {
-      send_ack(ACK_PIN, food);
-      send_ack(ACK_PIN, 1 - reset_state);
-      send_burst(ACK_PIN, pulse_time);
-    }
+    input = get_input();
     if (reset_state == 0) { // reset forces Sleep or Feed??
         state = SLEEPING;
-    } else if (state == SLEEPING) { // Suspended or startup
-      if (pulse_time > (SUSPEND_PULSE * 2) && pulse_time < MAX_PULSE) {
-        timer = timeout = pulse_time;
-        state = WATCHING;
-      } else {
-        if (DEBUG) {
-          send_ack(ACK_PIN, 3);
-        }
-      }
-    } else if (state == WATCHING) {  // Armed
-        if (food && pulse_time < SUSPEND_PULSE) { // Short pulse
-          timer = timeout;
-          if (DEBUG) {
-            send_ack(ACK_PIN, 1);
-          }
-        } else if (pulse_time >= SUSPEND_PULSE && pulse_time < (SUSPEND_PULSE * 2)) {
+        timer = sleep_period;
+    } else {
+      switch (input.cmd) {
+        case START:
+          state = WATCHING;
+          timer = watch_period = input.value;
+          break;
+        case STOP:
           state = SLEEPING;
-        } else if (pulse_time >= (SUSPEND_PULSE * 2)) {
-          timeout = pulse_time;
-          timer = timeout;
-        } else {
-          timer -= 1;
-          if (timer == 0) {
-  
-            pinMode(RESET_PIN, OUTPUT);
-            digitalWrite(RESET_PIN, LOW);
-            delay(100);
-            digitalWrite(RESET_PIN, HIGH);
-            pinMode(RESET_PIN, INPUT_PULLUP);
-  
-            state = SLEEPING;
+          timer = sleep_period = input.value;
+          break;
+        case FEED:
+          if (state == WATCHING) { // Feed the dog
+            timer = watch_period;
           }
-          if (DEBUG) {
-              send_burst(ACK_PIN, timer);
+          break;
+        case TIMEOUT: // 1 s Timer 
+        default:  // can only be timeout of timer.
+          if (state == SLEEPING) { // Suspended or startup
+            if (sleep_period > 0) {
+              timer -= 1;
+              if (timer <= 0) {
+                timer = watch_period;
+                state = WATCHING;
+              }
+            }
+          } else if (state == WATCHING) {  // Armed
+            timer -= 1;
+            if (timer <= 0) {
+        
+              pinMode(RESET_PIN, OUTPUT);
+              digitalWrite(RESET_PIN, LOW);
+              delay(100);
+              digitalWrite(RESET_PIN, HIGH);
+              pinMode(RESET_PIN, INPUT_PULLUP);
+        
+              state = SLEEPING;
+              timer = sleep_period;
+              // if the watchdog should be restarted instead of sleeping,
+              // replace the two lines above by the single line
+              // timer = watch_period;
+            }
+            break;
           }
       }
+    }    
+#if DEBUG    
+    if (DEBUG) {
+      send_ack(DEBUG_PIN, tick_seen);
+      send_ack(DEBUG_PIN, state);
+      send_ack(DEBUG_PIN, 1 - reset_state);
+      send_burst(DEBUG_PIN, timer);
     }
+#endif
 }
 
-int get_lowtime(int pin)
+result get_input()
+{
+  int pulse_time;
+  result input;
+
+  if (tick_seen) { // pulse seen; 
+    pulse_time = get_pulsetime(FEED_PIN, LOW, MAX_PULSE);
+    if (pulse_time < SUSPEND_PULSE) { // Short pulse, feed signal
+      input = {FEED, 0};
+    } else if (pulse_time >= SUSPEND_PULSE && pulse_time < (SUSPEND_PULSE * 2)) {
+      get_pulsetime(FEED_PIN, HIGH, SUSPEND_PULSE * 2);
+      input = {STOP, get_pulsetime(FEED_PIN, LOW, MAX_PULSE)}; // Stop signal
+    } else if (pulse_time >= (SUSPEND_PULSE * 2)) { // start watch
+      input = {START, pulse_time};  // Start signal
+    } 
+  } else { // No pulse, timeout of 1s timer.
+    input = {TIMEOUT, 0};
+  }
+  return input;
+}
+
+int get_pulsetime(int pin, int level, int maxtime)
 {
   int i;
-  for (i = 0; i < MAX_PULSE; i++) {
-    if (digitalRead(pin) == 1) {
+  for (i = 0; i < maxtime; i++) {
+    if (digitalRead(pin) != level) {
       break;
     }
-    delay(1);
+    delayMicroseconds(950);
   }
   return i;
 }
 
+#if DEBUG
 void send_ack(int pin, int duration)
 {
     digitalWrite(pin, HIGH);
@@ -122,14 +178,15 @@ void send_ack(int pin, int duration)
 void send_burst(int pin, int burst)
 {
     for (int i = 0; i < burst; i++) {
-      send_ack(ACK_PIN, 0);
+    digitalWrite(pin, HIGH);
+    digitalWrite(pin, LOW);
     }
 }
-
+#endif
 //****************************************************************  
 // set system into the sleep state 
 // system wakes up when wtchdog is timed out
-int system_sleep(int duration, int mode) 
+void system_sleep(int duration, int mode) 
 {
     tick_seen = 0;
     GIMSK |= _BV(PCIE);                     // Enable Pin Change Interrupts
@@ -153,7 +210,6 @@ int system_sleep(int duration, int mode)
     ADCSRA |= _BV(ADEN);                 //enable ADC
 #endif    
     sei();                                  // Enable interrupts
-    return tick_seen;
 }
 
 //****************************************************************  
