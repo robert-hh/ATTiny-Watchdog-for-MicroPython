@@ -1,5 +1,5 @@
 /* 
-   Soft Watchdod Timer
+   Soft Watchdog Timer
    Receives both Feed pulse and Commands from Pin 4
 */
    
@@ -220,6 +220,6 @@ ISR(WDT_vect)
 }
 
 ISR(PCINT0_vect) {
-    // This is called when the interrupt occurs, but I don't need to do anything in it
+    // This is called when the interrupt occurs; Just set the flag to notice
     tick_seen = 1;
 }
