@@ -10,10 +10,10 @@
 #include <avr/wdt.h>
 
 
-#define RX_PIN 4
+#define RX_PIN 3 // was 4
 #define TX_PIN 2
 #define STATUS_PIN 1
-#define RESET_PIN 3
+#define RESET_PIN 4 // was 3
 #define MAX_MSG 10
 
 SoftwareSerial mySerial(RX_PIN, TX_PIN);
@@ -160,7 +160,7 @@ result get_input() {
 // system wakes up when wtchdog is timed out
 void system_sleep(int duration, int mode) 
 {
-    PCMSK |= _BV(PCINT3);   // Use PB3 too as interrupt pin
+    PCMSK |= _BV(PCINT4);   // Use PB4 too as interrupt pin
     wdt_enable(duration);
     set_sleep_mode(mode); // sleep mode is set here
     wdt_reset();
@@ -173,7 +173,7 @@ void system_sleep(int duration, int mode)
     sleep_enable();
     sleep_cpu();
     sleep_disable();                     // System continues execution here when watchdog timed out 
-    PCMSK &= ~_BV(PCINT3);               // Turn off PB3 as interrupt pin
+    PCMSK &= ~_BV(PCINT4);               // Turn off PB4 as interrupt pin
 #ifdef _AVR_IOTNX5_H_  
     ADCSRA |= _BV(ADEN);                 //enable ADC
 #endif    
