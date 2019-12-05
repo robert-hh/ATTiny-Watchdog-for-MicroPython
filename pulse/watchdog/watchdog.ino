@@ -157,14 +157,17 @@ result get_input()
 
 int get_pulsetime(int pin, int level, int maxtime)
 {
-  int i;
-  for (i = 0; i < maxtime; i++) {
-    if (digitalRead(pin) != level) {
-      break;
+    unsigned long start, now;
+    unsigned long then = (unsigned long)maxtime * 1000;
+
+    now = start = micros();
+    while ((now - start) < then) {
+      if (digitalRead(pin) != level) {
+        break;
+      }
+      now = micros();
     }
-    delayMicroseconds(950);
-  }
-  return i;
+    return (int)((now - start + 500) / 1000);
 }
 
 #if DEBUG

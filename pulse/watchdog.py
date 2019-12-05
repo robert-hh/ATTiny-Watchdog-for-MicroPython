@@ -13,6 +13,10 @@ class Watchdog:
         else:
             self.status_pin = None
 
+    def delay(self, ms): # more precise delay.
+        for _ in range(ms):  # Pulse as long as timeout set
+            sleep_us(950)    # using a loop, due to the sleep_ms jitter
+
     def feed(self):
         self.pin(0)
         sleep_us(20)  # Just a short blip
@@ -21,13 +25,13 @@ class Watchdog:
     def start(self, timeout):
         timeout = min(MAXTIMEOUT, timeout)
         self.pin(0)
-        sleep_ms(timeout)  # Pulse as long as timeout set
+        self.delay(timeout)
         self.pin(1)
 
     def stop(self, timeout=0):
         self.start(SUSPEND)  # Longer pulse for suspend
         if timeout > 0: # second pulse signals sleep period
-            utime.sleep_ms(SUSPEND)
+            self.delay(SUSPEND)
             self.start(timeout)
 
     def status(self):
