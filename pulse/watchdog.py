@@ -23,16 +23,20 @@ class Watchdog:
         self.pin(1)
 
     def start(self, timeout):
-        timeout = min(MAXTIMEOUT, timeout)
+        timeout = min(MAXTIMEOUT, timeout) # less than 1 hour
+        timeout = max(SUSPEND * 2, timeout)  # more that a stop pulse
+        self._start(timeout)
+
+    def _start(self, timeout):
         self.pin(0)
         self.delay(timeout)
         self.pin(1)
 
     def stop(self, timeout=0):
-        self.start(SUSPEND)  # Longer pulse for suspend
+        self._start(SUSPEND)  # Longer pulse for suspend
         if timeout > 0: # second pulse signals sleep period
             self.delay(SUSPEND)
-            self.start(timeout)
+            self._start(timeout)
 
     def status(self):
         if self.status_pin is not None:

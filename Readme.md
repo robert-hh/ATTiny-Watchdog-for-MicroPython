@@ -64,6 +64,7 @@ name/number of a pin, which, if connected, can be used to read back the status o
 ### watchdog.start(seconds)
 
 Set the timeout period of the watchdog to seconds and start the watch mode. The granularity is seconds.
+The shortest timeout period that can be set in the pulse version is about 15 seconds.
 
 ### watchdog.feed()
 
