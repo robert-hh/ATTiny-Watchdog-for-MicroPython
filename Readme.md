@@ -19,11 +19,11 @@ the watchdog is done.
 That is the only drawback of using an external watchdog: it requires an GPIO port for feeding.
 - Serial: Communication to the Watchdog is via one GPIO line and serial commands at 9600 baud.
 Since only data is sent, I used the RMT module for sending, saving the UART port. For devices
-without RMT as UART based variant is supplied.
+without RMT a UART based variant is supplied.
 
 The run-time overhead of both variants is comparable and differs only in the length of the 
-feed pulse. For the **pulse** variant, it is 20µs, for the **serial** variant, it is 100µs (the length
-of the start bit at 9600 baud).
+feed pulse. For the **pulse** variant, it is 20µs, for the **serial** and **uart**  variant,
+it is 100µs (the length of the start bit at 9600 baud).
 
 Both watchdogs have two states, a sleep state and a watch state. They start in sleep state and have 
 to be armed by a dedicated signal. The watch state can be suspended, e.g. before going to deep sleep.
@@ -69,6 +69,8 @@ The shortest timeout period that can be set in the pulse version is about 15 sec
 ### watchdog.feed()
 
 Feed the dog. The timeout time will be set to the value given by the start() command.
+Do not call feed(), e.g. in a different thread, before the start() command terminated, 
+which may take a while.
 
 ### watchdog.stop(seconds=0)
 
@@ -134,7 +136,7 @@ The following pulse time ranges are defined:
 |sleep|5 ms <= pulse < 10 ms|Stay in sleep mode. If after less than 10 ms it is followed by another pulse, that time is taken as sleep timeout.|
 |sleep|10 ms <= pulse < 3600 ms|Set the timeout of the watchdog and change to the watch state. The pulse duration in ms defines the timeout value in seconds.|
 |watch|20 µs < pulse < 5 ms|Feed the dog.| 
-|watch|5 ms <= pulse < 10 ms|Suspend the watch state and enter the sleep state. If after less than 10 ms it is followed by another pulse, that time is taken as sleep timeout.|
+|watch|5 ms <= pulse < 10 ms|Suspend the watch state and enter the sleep state. If after less than 10 ms it is followed by another pulse, the length of that pulse is taken as sleep timeout.|
 |watch|10 ms <= pulse < 3600 ms|Restart the watch state and set the new timeout.|
 
 Pulses longer that 3600ms will be ignored in both states. That covers a line which is permanently low. The determination of the pulse duration is not very accurate, but good enough for the purpose.
@@ -144,7 +146,7 @@ The debug output will respond to the input with a series of pulses.
 - The second pulse shows the state of the watchdog, short for sleep and long for watch.   
 - The third pulse shows the state of the reset line, short for high and long for low.  
 - That is followed  by a burst of short pulses. The burst length indicates the remaining time until
-timout in the respective state. 
+timeout in the respective state. 
 
 The status output will indicate the watchdog state; low for sleeping and high for watching.
 
