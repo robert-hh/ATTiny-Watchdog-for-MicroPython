@@ -4,15 +4,19 @@ from utime import sleep_us
 BAUDRATE = const(9600)
 
 class Watchdog:
-    def __init__(self, gpio, status=None, baudrate=BAUDRATE):
-        self.gpio = gpio
-        self.pin = Pin(self.gpio, Pin.OUT, value=1)
+    def __init__(self, gpio, status=None, restart=None, baudrate=BAUDRATE):
+        self.pin = Pin(gpio, Pin.OUT, value=1)
         self.data = bytearray(9)
         self.duration = 1000000 // baudrate
         if status is not None:
-            self.status_pin = Pin(status, Pin.IN)
+            self.status_pin = Pin(status, Pin.IN, Pin.PULL_DOWN)
+            if restart is True:
+                self.status_pin.callback(Pin.IRQ_FALLING, self._restart)
         else:
             self.status_pin = None
+
+    def _restart(self, pin):
+        self.feed()
 
     def feed(self):
         self.pin(0)

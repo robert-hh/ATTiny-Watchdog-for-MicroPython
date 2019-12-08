@@ -15,7 +15,6 @@
 
 #define DEBUG 0
 
-#define MIN_PULSE 2
 #define MAX_PULSE 3600
 #define SUSPEND_PULSE 5 
 
@@ -69,7 +68,11 @@ void loop() {
     if (state == SLEEPING) {
       digitalWrite(STATUS_PIN, LOW);
     } else {
-      digitalWrite(STATUS_PIN, HIGH);
+      if (timer < (watch_period / 2)) {
+        digitalWrite(STATUS_PIN, timer & 1); // toggle status
+      } else {
+        digitalWrite(STATUS_PIN, HIGH);
+      }
     }
 
     system_sleep(WDTO_1S, SLEEP_MODE_PWR_DOWN);
@@ -146,7 +149,7 @@ result get_input()
     } else if (pulse_time >= SUSPEND_PULSE && pulse_time < (SUSPEND_PULSE * 2)) {
       get_pulsetime(FEED_PIN, HIGH, SUSPEND_PULSE * 2);
       input = {STOP, get_pulsetime(FEED_PIN, LOW, MAX_PULSE)}; // Stop signal
-    } else if (pulse_time >= (SUSPEND_PULSE * 2)) { // start watch
+    } else if (pulse_time >= (SUSPEND_PULSE * 2) && pulse_time < (MAX_PULSE - 2)) { // start watch
       input = {START, pulse_time};  // Start signal
     } 
   } else { // No pulse, timeout of 1s timer.

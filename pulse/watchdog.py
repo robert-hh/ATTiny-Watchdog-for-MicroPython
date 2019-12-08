@@ -5,17 +5,22 @@ MAXTIMEOUT = const(3600)
 SUSPEND = const(7)
 
 class Watchdog:
-    def __init__(self, gpio, status=None):
-        self.gpio = gpio
-        self.pin = Pin(self.gpio, Pin.OUT, value=1)
+    def __init__(self, gpio, status=None, restart=False):
+        self.pin = Pin(gpio, Pin.OUT, value=1)
         if status is not None:
-            self.status_pin = Pin(status, Pin.IN)
+            self.status_pin = Pin(status, Pin.IN, Pin.PULL_DOWN)
+            if restart is True:
+                self.status_pin.callback(Pin.IRQ_FALLING, self._restart)
         else:
             self.status_pin = None
+        sleep_ms(100)  # let the Pin settle
 
     def delay(self, ms): # more precise delay.
         for _ in range(ms):  # Pulse as long as timeout set
             sleep_us(950)    # using a loop, due to the sleep_ms jitter
+
+    def _restart(self, pin):
+        self.feed()
 
     def feed(self):
         self.pin(0)

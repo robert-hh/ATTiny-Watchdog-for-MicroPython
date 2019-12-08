@@ -39,25 +39,35 @@ to enter the sleep state. If the sleep state is timed (see command stop() below)
 ## Python class
 
 ### Serial version, RMT
-watchdog = Watchdog(port, status=None, baudrate=9600)
+watchdog = Watchdog(port, status=None, restart=False, baudrate=9600)
 
-Port is the name or number of the GPIO port. It is important not to supply a pin
-object, but the name, e.g. "P9" or 14. The GPIO pin will be initialized by the class. status is the
-name/number of a pin, which, if connected, can be used to read back the status of the watchdog.
-baudrate is the speed to be used. The default is 9600 and hardly ever changed.
+**Port** is the name or number of the GPIO port. It is important not to supply a pin
+object, but the name, e.g. "P9" or 14. The GPIO pin will be initialized by the class.  
+**status** is the name/number of a pin, which, if connected, can be used to read back the 
+status of the watchdog. If the status pin is set,   
+**restart**=True will cause a feed signal to be sent when status starts toggling,
+which is when the watch period is halfway expired. This is useful in situations, when there is no
+suitable place for a feed() call. The drawback: feed() is then called in a callback function, which
+may even be executed when the to-be-supervized functions stoppped working.
+**baudrate** is the speed to be used. The default is 9600 and hardly ever changed.
 
 ### Serial version, UART
 watchdog = Watchdog(uart, status=None)
 
-uart has be be an UART object created with the proper baud rate and pin assignments.
-status is a Pin object, defined in input mode for reading back the status pin.
+**uart** has be be an UART object created with the proper baud rate and pin assignments.  
+**status** is a Pin object, defined in input mode for reading back the status pin.
 
 ### Pulse version
-watchdog = Watchdog(port, status=None)
+watchdog = Watchdog(port, status=None, restart=False)
 
-Port is the name or number of the GPIO port. It is important not to supply a pin
-object, but the name, e.g. "P9" or 14. The GPIO pin will be initialized by the class. status is the
-name/number of a pin, which, if connected, can be used to read back the status of the watchdog.
+**Port** is the name or number of the GPIO port. It is important not to supply a pin
+object, but the name, e.g. "P9" or 14. The GPIO pin will be initialized by the class.  
+**status** is the name/number of a pin, which, if connected, can be used to read back 
+the status of the watchdog.  
+**restart**=True will cause a feed signal to be sent when status starts toggling,
+which is when the watch period is halfway expired. This is useful in situations, when there is no
+suitable place for a feed() call. The drawback: feed() is then called in a callback function, which
+may even be executed when the to-be-supervized functions stoppped working.  
 
 ## Methods
 
@@ -70,7 +80,8 @@ The shortest timeout period that can be set in the pulse version is about 15 sec
 
 Feed the dog. The timeout time will be set to the value given by the start() command.
 Do not call feed(), e.g. in a different thread, before the start() command terminated, 
-which may take a while.
+which may take a while. After calling feed(), it takes about 2 ms until the status as reported by a
+call to status() changes. 
 
 ### watchdog.stop(seconds=0)
 
@@ -82,9 +93,11 @@ and return to the watch state after that.
 
 Read back the status of the watchdog using the pin set in the constructor. Return values:  
 
-0: watchdog is sleeping  
-1: watchdog is active  
-None: Port no set
+|Value|Meaning|
+|:-:|:-|
+|0|The watchdog is sleeping|
+|1|The watchdog is active. If the watch period is halfway elapsed, the value gets togggling once per second. That can be used for instance to trigger a callback, which feeds the watchdog.|
+|None|Port no set|
 
 ### watchdog.send(string)
 
@@ -152,6 +165,8 @@ The status output will indicate the watchdog state; low for sleeping and high fo
 
 ## Example
 
+Basic example:
+
 ```
 import watchdog
 
@@ -161,6 +176,42 @@ wd.start(100) # set a timeout of 100 seconds and start
 # To feed, call regularly
 #
 wd.feed()
+#
+# to stop, call
+#
+wd.stop()
+```
+
+Basic example using the internal callback for feeding:
+
+```
+import watchdog
+
+wd = watchdog.Watchdog("P9", "P10", True)
+wd.start(100) # set a timeout of 100 seconds and start
+#
+# No explicit call to feed is required
+#
+# to stop, call
+#
+wd.stop()
+```
+
+
+UART example using an dedicated callback for feeding:
+
+```
+import watchdog
+from machine import UART, Pin
+
+uart=UART(1, 9600)
+pin = Pin("P10", Pin.IN)
+wd = watchdog_uart.Watchdog(uart, pin)
+pin.callback(Pin.IRQ_FALLING, handler=lambda p: wd.feed())
+
+wd.start(100) # set a timeout of 100 seconds and start
+#
+# No explicit call to feed is required
 #
 # to stop, call
 #

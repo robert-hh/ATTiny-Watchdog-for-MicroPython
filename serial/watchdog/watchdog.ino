@@ -10,10 +10,10 @@
 #include <avr/wdt.h>
 
 
-#define RX_PIN 3 // was 4
+#define RX_PIN 3
 #define TX_PIN 2
 #define STATUS_PIN 1
-#define RESET_PIN 4 // was 3
+#define RESET_PIN 4
 #define MAX_MSG 10
 
 SoftwareSerial mySerial(RX_PIN, TX_PIN);
@@ -56,7 +56,15 @@ void loop() {
     result input;
     int reset_state;
 
-    digitalWrite(STATUS_PIN, state);  // Signal WD state
+    if (state == SLEEPING) {
+      digitalWrite(STATUS_PIN, LOW);
+    } else {
+      if (timer < (watch_period / 2)) {
+        digitalWrite(STATUS_PIN, timer & 1); // toggle status
+      } else {
+        digitalWrite(STATUS_PIN, HIGH);
+      }
+    }
 
     system_sleep(WDTO_1S, SLEEP_MODE_PWR_DOWN);
 
