@@ -33,10 +33,10 @@
 #include <avr/power.h>
 #include <avr/wdt.h>
 
-#define FEED_PIN 3
+#define FEED_PIN 4
 #define DEBUG_PIN 2
 #define STATUS_PIN 1
-#define RESET_PIN 4
+#define RESET_PIN 3
 
 #define DEBUG 0
 
